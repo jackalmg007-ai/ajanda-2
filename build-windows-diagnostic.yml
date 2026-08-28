@@ -1,0 +1,49 @@
+name: TEŞHİS - basit Windows derlemesi
+
+# Bu, sorun teşhisi için hazırlanmış SADE bir sürümdür. WebView2 gömme
+# ("fixedRuntime") adımını tamamen çıkarır ve Tauri'nin varsayılan
+# davranışına (hedef bilgisayarda internetle WebView2 indirme) döner.
+# Amaç: temel derlemenin ne kadar sürdüğünü, ekstra adımlar olmadan görmek.
+
+"on":
+  workflow_dispatch: {}
+
+jobs:
+  build-windows-minimal:
+    runs-on: windows-latest
+    steps:
+      - name: Depoyu al
+        uses: actions/checkout@v4
+
+      - name: Node.js kur
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Rust kur
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Cargo önbelleği
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: npm bağımlılıklarını kur
+        run: npm install
+
+      - name: Uygulama ikonlarını üret
+        run: npx tauri icon app-icon.png
+
+      # NOT: fixedRuntime YOK — tauri.conf.json'daki webviewInstallMode ayarını
+      # geçici olarak eziyoruz, varsayılan (downloadBootstrapper) davranışa döner.
+      - name: Uygulamayı derle (SADE, varsayılan WebView2 modu)
+        run: npx tauri build --bundles nsis --config "{\"bundle\":{\"windows\":{\"webviewInstallMode\":{\"type\":\"downloadBootstrapper\"}}}}"
+
+      - name: Kurulum dosyasını yükle
+        uses: actions/upload-artifact@v4
+        with:
+          name: ajanda-windows-TESHIS
+          path: src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: error
